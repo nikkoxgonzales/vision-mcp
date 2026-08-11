@@ -89,10 +89,49 @@ claude mcp add vision-mcp \
 With a local clone, swap `npx -y github:nikkoxgonzales/vision-mcp`
 for `node path/to/vision-mcp/build/index.js`.
 
-### Other MCP clients
+### Other MCP clients — `.mcp.json`
 
-Use the same env vars with any client that supports stdio MCP servers:
-run `node build/index.js` as the command. Upstream platform docs:
+Clients that read a project-level `.mcp.json` (VS Code, Cursor, Windsurf,
+...): drop this at the project root.
+
+```json
+{
+  "mcpServers": {
+    "vision-mcp": {
+      "command": "npx",
+      "args": ["-y", "github:nikkoxgonzales/vision-mcp"],
+      "env": {
+        "AI_API_KEY": "your_api_key",
+        "AI_MODE": "ZAI"
+      }
+    }
+  }
+}
+```
+
+For any other OpenAI-compatible provider, set the base URL and model
+instead of `AI_MODE`:
+
+```json
+{
+  "mcpServers": {
+    "vision-mcp": {
+      "command": "npx",
+      "args": ["-y", "github:nikkoxgonzales/vision-mcp"],
+      "env": {
+        "AI_API_KEY": "your_api_key",
+        "AI_BASE_URL": "https://api.openai.com/v1/",
+        "AI_VISION_MODEL": "gpt-4o"
+      }
+    }
+  }
+}
+```
+
+With a local clone, swap `npx`/`args` for `command: "node"`,
+`args: ["path/to/vision-mcp/build/index.js"]`.
+
+Upstream platform docs:
 [Z.AI Vision MCP](https://docs.z.ai/devpack/mcp/vision-mcp-server) ·
 [Zhipu Vision MCP](https://docs.bigmodel.cn/cn/coding-plan/mcp/vision-mcp-server)
 
