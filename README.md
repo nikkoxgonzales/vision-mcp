@@ -33,10 +33,19 @@ Eight tools cover image and video analysis:
 
 Requires Node.js 18+.
 
+**Easiest — no clone, no npm publish.** `npx` runs the server straight
+from the GitHub repo (cached after the first run):
+
+```sh
+npx -y github:nikkoxgonzales/vision-mcp
+```
+
+Or clone and install locally:
+
 ```sh
 git clone https://github.com/nikkoxgonzales/vision-mcp.git
 cd vision-mcp
-npm install --ignore-scripts   # deps only; build output is vendored
+npm install
 ```
 
 ## Usage
@@ -64,18 +73,21 @@ Convenience presets via `AI_MODE` (or `PLATFORM_MODE`) fill in
 
 ```sh
 # Z.AI
-claude mcp add vision-mcp --env AI_API_KEY=your_key AI_MODE=ZAI -- node path/to/vision-mcp/build/index.js
+claude mcp add vision-mcp --env AI_API_KEY=your_key AI_MODE=ZAI -- npx -y github:nikkoxgonzales/vision-mcp
 
 # Zhipu
-claude mcp add vision-mcp --env AI_API_KEY=your_key AI_MODE=ZHIPU -- node path/to/vision-mcp/build/index.js
+claude mcp add vision-mcp --env AI_API_KEY=your_key AI_MODE=ZHIPU -- npx -y github:nikkoxgonzales/vision-mcp
 
 # Any OpenAI-compatible provider
 claude mcp add vision-mcp \
   --env AI_API_KEY=your_key \
   --env AI_BASE_URL=https://api.openai.com/v1/ \
   --env AI_VISION_MODEL=gpt-4o \
-  -- node path/to/vision-mcp/build/index.js
+  -- npx -y github:nikkoxgonzales/vision-mcp
 ```
+
+With a local clone, swap `npx -y github:nikkoxgonzales/vision-mcp`
+for `node path/to/vision-mcp/build/index.js`.
 
 ### Other MCP clients
 
