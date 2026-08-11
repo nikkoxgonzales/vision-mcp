@@ -1,5 +1,17 @@
 import { ApiError } from '../types/index.js';
 /**
+ * Parse an int from an env string; NaN/invalid falls back to the default so
+ * a mistyped var can't produce an instant-abort timeout or null in the request.
+ */
+function parseIntSafe(value, fallback) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : fallback;
+}
+function parseFloatSafe(value, fallback) {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : fallback;
+}
+/**
  * Environment configuration service using singleton pattern
  */
 export class EnvironmentService {
@@ -54,41 +66,48 @@ export class EnvironmentService {
             envConfig.PLATFORM_MODE = 'CUSTOM';
         }
         else {
-            // for z.ai paas is https://api.z.ai/api/paas/v4/
-            // for zhipuai is https://open.bigmodel.cn/api/paas/v4/
-            envConfig.Z_AI_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4/';
-            // Support PLATFORM_MODE, AI_MODE and Z_AI_MODE for backward compatibility
-            // Priority: PLATFORM_MODE > AI_MODE > Z_AI_MODE > default(ZHIPU)
-            const platformMode = envConfig.PLATFORM_MODE || envConfig.AI_MODE || envConfig.Z_AI_MODE;
-            if (platformMode === 'Z_AI' || platformMode === 'ZAI' || platformMode === 'Z') {
-                envConfig.Z_AI_BASE_URL = 'https://api.z.ai/api/paas/v4/';
-                envConfig.PLATFORM_MODE = 'ZAI';
+            // Support PLATFORM_MODE, AI_MODE and Z_AI_MODE for backward compatibility.
+            // First VALID mode wins (case-insensitive); junk values fall through
+            // to the next candidate instead of silently shadowing a valid one.
+            const MODE_TO_PLATFORM = {
+                'Z_AI': 'ZAI', 'ZAI': 'ZAI', 'Z': 'ZAI',
+                'ZHIPU_AI': 'ZHIPU', 'ZHIPUAI': 'ZHIPU',
+                'ZHIPU': 'ZHIPU', 'BIGMODEL': 'ZHIPU'
+            };
+            let platformMode = null;
+            for (const candidate of [envConfig.PLATFORM_MODE, envConfig.AI_MODE, envConfig.Z_AI_MODE]) {
+                if (!candidate) {
+                    continue;
+                }
+                const normalized = MODE_TO_PLATFORM[candidate.trim().toUpperCase()];
+                if (normalized) {
+                    platformMode = normalized;
+                    break;
+                }
             }
-            else if (platformMode === 'ZHIPU_AI' || platformMode === 'ZHIPUAI'
-                || platformMode === 'ZHIPU' || platformMode === 'BIGMODEL') {
-                envConfig.Z_AI_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4/';
-                envConfig.PLATFORM_MODE = 'ZHIPU';
-            }
-            else {
-                envConfig.PLATFORM_MODE = 'ZHIPU';
-            }
+            envConfig.PLATFORM_MODE = platformMode || 'ZHIPU';
+            envConfig.Z_AI_BASE_URL = platformMode === 'ZAI'
+                // for z.ai paas
+                ? 'https://api.z.ai/api/paas/v4/'
+                // for zhipuai paas
+                : 'https://open.bigmodel.cn/api/paas/v4/';
         }
         if (!envConfig.Z_AI_API_KEY && envConfig.ZAI_API_KEY) {
             envConfig.Z_AI_API_KEY = envConfig.ZAI_API_KEY;
             console.warn("[important] Z_AI_API_KEY is not set but found ZAI_API_KEY, using ZAI_API_KEY as Z_AI_API_KEY");
         }
-        // for some user forget replace the `your_api_key` `your_zhipu_api_key` `your_zai_api_key` in the env
-        if (!envConfig.Z_AI_API_KEY || envConfig.Z_AI_API_KEY?.toLowerCase().includes('api')
-            || envConfig.Z_AI_API_KEY?.toLowerCase().includes('key')) {
-            if (envConfig.ANTHROPIC_AUTH_TOKEN && !envConfig.ANTHROPIC_AUTH_TOKEN?.toLowerCase().includes('api')) {
-                // use the ANTHROPIC_AUTH_TOKEN as Z_AI_API_KEY if available
-                envConfig.Z_AI_API_KEY = envConfig.ANTHROPIC_AUTH_TOKEN;
-                console.warn('[important] Z_AI_API_KEY is not set but found ANTHROPIC_AUTH_TOKEN, using ANTHROPIC_AUTH_TOKEN as Z_AI_API_KEY');
-            }
-            else {
-                throw new ApiError('AI_API_KEY environment variable is required, please set your actual API key');
-            }
+        // Reject missing, whitespace-only, and unfilled placeholder keys. Match
+        // against known placeholder strings only — a substring scan rejects real
+        // keys that happen to contain 'api' or 'key' (e.g. sk-ant-api03-...).
+        const apiKey = (envConfig.Z_AI_API_KEY || '').trim();
+        const PLACEHOLDER_API_KEYS = new Set([
+            'your_api_key', 'your_zhipu_api_key', 'your_zai_api_key',
+            'your_zai_key', '<api_key>', '<your_api_key>', 'xxx', 'sk-xxx'
+        ]);
+        if (!apiKey || PLACEHOLDER_API_KEYS.has(apiKey.toLowerCase())) {
+            throw new ApiError('AI_API_KEY environment variable is required, please set your actual API key');
         }
+        envConfig.Z_AI_API_KEY = apiKey;
         return {
             Z_AI_BASE_URL: envConfig.Z_AI_BASE_URL,
             Z_AI_API_KEY: envConfig.Z_AI_API_KEY,
@@ -109,8 +128,8 @@ export class EnvironmentService {
     getServerConfig() {
         const config = this.getConfig();
         return {
-            name: config.SERVER_NAME || 'zai-mcp-server',
-            version: config.SERVER_VERSION || '0.1.2'
+            name: config.SERVER_NAME || 'vision-mcp',
+            version: config.SERVER_VERSION || '0.1.4'
         };
     }
     /**
@@ -125,14 +144,20 @@ export class EnvironmentService {
      */
     getVisionConfig() {
         const config = this.getConfig();
+        const maxTokensRaw = config.Z_AI_VISION_MODEL_MAX_TOKENS;
         return {
             model: config.Z_AI_VISION_MODEL || 'glm-4.6v',
-            timeout: parseInt(config.Z_AI_TIMEOUT || '300000'),
-            retryCount: parseInt(config.Z_AI_RETRY_COUNT || '1'),
+            timeout: parseIntSafe(config.Z_AI_TIMEOUT, 300000),
+            retryCount: Math.max(0, parseIntSafe(config.Z_AI_RETRY_COUNT, 1)),
             url: config.Z_AI_BASE_URL.replace(/\/+$/, '') + '/chat/completions',
-            temperature: parseFloat(config.Z_AI_VISION_MODEL_TEMPERATURE || '0.8'),
-            topP: parseFloat(config.Z_AI_VISION_MODEL_TOP_P || '0.6'),
-            maxTokens: parseInt(config.Z_AI_VISION_MODEL_MAX_TOKENS || '32768')
+            temperature: parseFloatSafe(config.Z_AI_VISION_MODEL_TEMPERATURE, 0.8),
+            topP: parseFloatSafe(config.Z_AI_VISION_MODEL_TOP_P, 0.6),
+            // null when unset -> request omits max_tokens so each provider's
+            // own output limit applies (a fixed 32768 breaks providers that
+            // cap lower, e.g. OpenAI's 16384).
+            maxTokens: maxTokensRaw != null && maxTokensRaw.trim() !== ''
+                ? parseIntSafe(maxTokensRaw, 32768)
+                : null
         };
     }
     /**

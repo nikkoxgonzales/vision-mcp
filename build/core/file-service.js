@@ -18,12 +18,18 @@ export class FileService {
         }
     }
     /**
+     * True for data: URLs — inline base64 content, no filesystem to check.
+     */
+    static isDataUrl(source) {
+        return typeof source === 'string' && source.startsWith('data:');
+    }
+    /**
      * Validate if image source exists and check size limit
-     * @param imageSource Path to image file or URL
+     * @param imageSource Path to image file, URL, or data: URL
      * @param maxSizeMB Maximum file size in MB (default: 5MB)
      */
     static async validateImageSource(imageSource, maxSizeMB = 5) {
-        if (this.isUrl(imageSource)) {
+        if (this.isUrl(imageSource) || this.isDataUrl(imageSource)) {
             return;
         }
         if (!fs.existsSync(imageSource)) {
@@ -46,7 +52,7 @@ export class FileService {
      * @param maxSizeMB Maximum file size in MB (default: 8MB)
      */
     static async validateVideoSource(videoSource, maxSizeMB = 8) {
-        if (this.isUrl(videoSource)) {
+        if (this.isUrl(videoSource) || this.isDataUrl(videoSource)) {
             return;
         }
         if (!fs.existsSync(videoSource)) {
@@ -64,8 +70,8 @@ export class FileService {
      * @returns Base64 encoded image data or URL
      */
     static async encodeImageToBase64(imageSource) {
-        if (this.isUrl(imageSource)) {
-            // For URLs, return the URL directly (no base64 encoding needed)
+        if (this.isUrl(imageSource) || this.isDataUrl(imageSource)) {
+            // For URLs and data: URLs, pass through (no re-encoding needed)
             return imageSource;
         }
         // For local files, encode to base64
@@ -81,8 +87,8 @@ export class FileService {
      * @returns Base64 encoded video data URL
      */
     static async encodeVideoToBase64(videoSource) {
-        if (this.isUrl(videoSource)) {
-            // For URLs, return the URL directly (no base64 encoding needed)
+        if (this.isUrl(videoSource) || this.isDataUrl(videoSource)) {
+            // For URLs and data: URLs, pass through (no re-encoding needed)
             return videoSource;
         }
         // For local files, encode to base64

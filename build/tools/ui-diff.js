@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FileNotFoundError, ApiError } from '../types/index.js';
 import { CommonSchemas, ToolSchemaBuilder } from '../utils/validation.js';
 import { formatMcpResponse, createSuccessResponse, createErrorResponse, withRetry } from '../core/api-common.js';
+import { configurationService } from '../core/environment.js';
 import { BaseImageAnalysisService } from '../core/base-image-service.js';
 import { UI_DIFF_CHECK_PROMPT } from '../prompts/index.js';
 /**
@@ -45,7 +46,7 @@ ${userPrompt}`;
  */
 export function registerUiDiffCheckTool(server) {
     const service = new UiDiffCheckService();
-    const retryableCompare = withRetry(service.compareUiScreenshots.bind(service), 2, 1000);
+    const retryableCompare = withRetry(service.compareUiScreenshots.bind(service), configurationService.getVisionConfig().retryCount, 1000);
     server.tool('ui_diff_check', `Compare two UI screenshots to identify visual differences and implementation discrepancies.
 
 Use this tool ONLY when the user wants to compare an expected/reference UI with an actual implementation.

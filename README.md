@@ -27,7 +27,7 @@ Eight tools cover image and video analysis:
 | `analyze_data_visualization` | Insights from charts and graphs |
 | `ui_diff_check` | Visual regression: expected vs actual UI |
 | `analyze_image` | General-purpose image analysis (fallback) |
-| `analyze_video` | Video content analysis (URL or local file, ≤8MB) |
+| `analyze_video` | Video content analysis (URL or local file; local file ≤8MB, ZAI/Zhipu only) |
 
 ## Install
 
@@ -68,6 +68,12 @@ Convenience presets via `AI_MODE` (or `PLATFORM_MODE`) fill in
 > Legacy aliases `Z_AI_API_KEY`, `Z_AI_BASE_URL`, `Z_AI_VISION_MODEL`,
 > `Z_AI_MODE`, `ZAI_API_KEY` and `Z_AI_*` tunables are still accepted;
 > `AI_*` takes precedence when both are set.
+
+Size limits: local images ≤5MB, local videos ≤8MB (URLs are passed
+through unchecked). `AI_VISION_MODEL_MAX_TOKENS` defaults to *omitted* —
+the provider's own output cap applies; set it explicitly to cap output.
+`AI_RETRY_COUNT` (default 1) controls API retries; only transient
+failures (network, timeout, 5xx) are retried.
 
 ### Claude Code
 
@@ -142,6 +148,14 @@ Upstream platform docs:
 
 ## Changelog
 
+- `2026-08-12` — hardening pass: API-key validation now matches real
+  placeholders (real keys containing "api"/"key" no longer rejected);
+  whitespace-only keys rejected; undocumented `ANTHROPIC_AUTH_TOKEN`
+  fallback removed; `AI_MODE` matching case-insensitive; invalid numeric
+  env values fall back to defaults; `max_tokens` omitted when unset;
+  retries limited to transient failures and `AI_RETRY_COUNT` now wired;
+  `analyze_video` restricted to ZAI/Zhipu (generic endpoints don't
+  accept `video_url`); server identity `vision-mcp` v0.1.4.
 - `2026-08-12` — v0.1.4 vendored; provider-agnostic config (`AI_BASE_URL` +
   `AI_VISION_MODEL` + `AI_API_KEY`, legacy `Z_AI_*` aliases accepted);
   explicit base URL wins over `AI_MODE`; provider-specific request params

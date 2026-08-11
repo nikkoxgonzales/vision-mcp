@@ -22,6 +22,11 @@ class Logger {
                 this.logStream.end();
             }
             this.logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+            // A write failure must not crash the MCP session (an 'error' event
+            // with no listener would throw uncaught).
+            this.logStream.on('error', (err) => {
+                process.stderr.write(`[logger] log file write failed: ${String(err)}\n`);
+            });
         }
         catch (err) {
             const timestamp = new Date().toISOString();

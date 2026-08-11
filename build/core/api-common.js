@@ -1,3 +1,4 @@
+import { ApiError, FileNotFoundError, ValidationError } from '../types/index.js';
 /**
  * Create multimodal message content
  * @param content Content array including images, text, etc.
@@ -94,6 +95,24 @@ export function formatMcpResponse(response) {
     }
 }
 /**
+ * True for errors where a retry could plausibly succeed: network/timeout
+ * failures and 5xx/429 HTTP responses. 4xx (bad key, invalid body, missing
+ * file) never fix themselves by retrying.
+ */
+function isTransientError(error) {
+    if (error instanceof ApiError) {
+        const code = error.statusCode;
+        if (code == null) {
+            return true; // network / timeout — transient
+        }
+        return code === 408 || code === 429 || code >= 500;
+    }
+    if (error instanceof FileNotFoundError || error instanceof ValidationError) {
+        return false;
+    }
+    return true;
+}
+/**
  * Create async function with retry mechanism
  * @param fn Async function to execute
  * @param maxRetries Maximum retry attempts
@@ -109,7 +128,7 @@ export function withRetry(fn, maxRetries = 3, delay = 1000) {
             }
             catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
-                if (attempt === maxRetries) {
+                if (attempt === maxRetries || !isTransientError(lastError)) {
                     throw lastError;
                 }
                 // Exponential backoff

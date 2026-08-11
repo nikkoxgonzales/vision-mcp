@@ -27,7 +27,8 @@ export class ChatService {
             stream: false,
             temperature: visionConfig.temperature,
             top_p: visionConfig.topP,
-            max_tokens: visionConfig.maxTokens
+            // Omit max_tokens when unset so each provider's own output cap applies.
+            ...(visionConfig.maxTokens != null ? { max_tokens: visionConfig.maxTokens } : {})
         };
         console.info('Request ZAI chat completions API for vision analysis', { model: visionConfig.model, messageCount: messages.length });
         try {
@@ -67,7 +68,9 @@ export class ChatService {
             clearTimeout(timeoutId);
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new ApiError(`HTTP ${response.status}: ${errorText}`);
+                // statusCode lets callers (e.g. withRetry) classify the error:
+                // 4xx is permanent, 5xx/429 is transient.
+                throw new ApiError(`HTTP ${response.status}: ${errorText}`, undefined, response.status);
             }
             return await response.json();
         }

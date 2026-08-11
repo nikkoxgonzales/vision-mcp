@@ -1,4 +1,5 @@
 import { ToolExecutionError } from './error-handler.js';
+import { ApiError, FileNotFoundError, ValidationError } from '../types/index.js';
 import { createMultiModalMessage, createImageContent } from './api-common.js';
 import { fileService } from './file-service.js';
 import { chatService } from './chat-service.js';
@@ -68,6 +69,13 @@ export class BaseImageAnalysisService {
             console.error(`${toolName} analysis failed`, {
                 error: error instanceof Error ? error.message : String(error)
             });
+            // Let typed errors reach the tool handlers (and withRetry's
+            // transient check) unwrapped; only unknown errors get re-wrapped.
+            if (error instanceof ApiError
+                || error instanceof FileNotFoundError
+                || error instanceof ValidationError) {
+                throw error;
+            }
             throw new ToolExecutionError(`${toolName} analysis failed: ${error.message}`, toolName, 'EXECUTION_ERROR', {
                 toolName,
                 operation: 'executeVisionAnalysis',

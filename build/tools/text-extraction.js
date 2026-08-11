@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FileNotFoundError, ApiError } from '../types/index.js';
 import { CommonSchemas, ToolSchemaBuilder } from '../utils/validation.js';
 import { formatMcpResponse, createSuccessResponse, createErrorResponse, withRetry } from '../core/api-common.js';
+import { configurationService } from '../core/environment.js';
 import { BaseImageAnalysisService } from '../core/base-image-service.js';
 import { TEXT_EXTRACTION_PROMPT } from '../prompts/index.js';
 /**
@@ -40,7 +41,7 @@ class TextExtractionService extends BaseImageAnalysisService {
  */
 export function registerTextExtractionTool(server) {
     const service = new TextExtractionService();
-    const retryableExtract = withRetry(service.extractText.bind(service), 2, 1000);
+    const retryableExtract = withRetry(service.extractText.bind(service), configurationService.getVisionConfig().retryCount, 1000);
     server.tool('extract_text_from_screenshot', `Extract and recognize text from screenshots using advanced OCR capabilities.
 
 Use this tool ONLY when the user has a screenshot containing text and wants to extract it.

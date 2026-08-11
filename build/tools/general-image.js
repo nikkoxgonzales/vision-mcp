@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FileNotFoundError, ApiError } from '../types/index.js';
 import { CommonSchemas, ToolSchemaBuilder } from '../utils/validation.js';
 import { formatMcpResponse, createSuccessResponse, createErrorResponse, withRetry } from '../core/api-common.js';
+import { configurationService } from '../core/environment.js';
 import { BaseImageAnalysisService } from '../core/base-image-service.js';
 import { GENERAL_IMAGE_ANALYSIS_PROMPT } from '../prompts/index.js';
 /**
@@ -33,7 +34,7 @@ class GeneralImageAnalysisService extends BaseImageAnalysisService {
  */
 export function registerGeneralImageAnalysisTool(server) {
     const service = new GeneralImageAnalysisService();
-    const retryableAnalyze = withRetry(service.analyzeImage.bind(service), 2, 1000);
+    const retryableAnalyze = withRetry(service.analyzeImage.bind(service), configurationService.getVisionConfig().retryCount, 1000);
     server.tool('analyze_image', `General-purpose image analysis for scenarios not covered by specialized tools.
 
 Use this tool as a FALLBACK when none of the other specialized tools (ui_to_artifact, extract_text_from_screenshot,

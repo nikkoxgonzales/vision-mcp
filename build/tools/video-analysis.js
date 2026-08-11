@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { FileNotFoundError, ApiError } from '../types/index.js';
+import { FileNotFoundError, ApiError, ValidationError } from '../types/index.js';
 import { ToolExecutionError } from '../core/error-handler.js';
 import { CommonSchemas, ToolSchemaBuilder } from '../utils/validation.js';
 import { createMultiModalMessage, createVideoContent, formatMcpResponse, createSuccessResponse, createErrorResponse, withRetry } from '../core/api-common.js';
 import { fileService } from '../core/file-service.js';
 import { chatService } from '../core/chat-service.js';
+import { configurationService } from '../core/environment.js';
 /**
  * Video analysis service class
  */
@@ -23,6 +24,12 @@ export class VideoAnalysisService {
             prompt: request.prompt
         });
         try {
+            // Video content uses the non-standard `video_url` part type, which
+            // strict OpenAI-compatible endpoints reject — only ZAI/ZHIPU handle it.
+            if (configurationService.getPlatformMode() === 'CUSTOM') {
+                // statusCode 400 = permanent, so withRetry doesn't re-run it.
+                throw new ApiError('analyze_video requires AI_MODE=ZAI or AI_MODE=ZHIPU — generic OpenAI-compatible endpoints do not accept video content', undefined, 400);
+            }
             // Validate video source (file or URL) and size
             await this.fileService.validateVideoSource(request.videoSource, this.MAX_VIDEO_SIZE_MB);
             // Validate prompt
@@ -57,7 +64,10 @@ export class VideoAnalysisService {
                 error: error instanceof Error ? error.message : String(error),
                 videoSource: request.videoSource
             });
-            if (error instanceof ToolExecutionError) {
+            if (error instanceof ToolExecutionError
+                || error instanceof ApiError
+                || error instanceof FileNotFoundError
+                || error instanceof ValidationError) {
                 throw error;
             }
             // Wrap unknown errors
@@ -75,7 +85,7 @@ export class VideoAnalysisService {
  */
 export function registerVideoAnalysisTool(server) {
     const analysisService = new VideoAnalysisService();
-    const retryableAnalyze = withRetry(analysisService.analyzeVideo.bind(analysisService), 2, // Maximum 2 retries
+    const retryableAnalyze = withRetry(analysisService.analyzeVideo.bind(analysisService), configurationService.getVisionConfig().retryCount, // retries from AI_RETRY_COUNT
     1000 // 1 second delay
     );
     server.tool('analyze_video', `Analyze video content using advanced AI vision models.
@@ -87,8 +97,8 @@ Use this tool when the user wants to:
 - Get descriptions of video footage
 - Identify objects, people, or activities in video
 
-Supports both local files and remote URL. Maximum file size: 8MB. Supports MP4, MOV, M4V formats.`, {
-        video_source: z.string().describe('Local file path or remote URL to the video (supports MP4, MOV, M4V)'),
+Supports both local files and remote URL. Maximum file size: 8MB.`, {
+        video_source: z.string().describe('Local file path or remote URL to the video'),
         prompt: z.string().describe('Detailed text prompt describing what to analyze, extract, or understand from the video')
     }, async (params) => {
         try {
