@@ -129,7 +129,7 @@ export class EnvironmentService {
             model: config.Z_AI_VISION_MODEL || 'glm-4.6v',
             timeout: parseInt(config.Z_AI_TIMEOUT || '300000'),
             retryCount: parseInt(config.Z_AI_RETRY_COUNT || '1'),
-            url: config.Z_AI_BASE_URL + 'chat/completions',
+            url: config.Z_AI_BASE_URL.replace(/\/+$/, '') + '/chat/completions',
             temperature: parseFloat(config.Z_AI_VISION_MODEL_TEMPERATURE || '0.8'),
             topP: parseFloat(config.Z_AI_VISION_MODEL_TOP_P || '0.6'),
             maxTokens: parseInt(config.Z_AI_VISION_MODEL_MAX_TOKENS || '32768')

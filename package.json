@@ -16,9 +16,7 @@
     "url": "https://docs.z.ai/"
   },
   "scripts": {
-    "build": "tsc && chmod 755 build/index.js",
     "start": "node build/index.js",
-    "prepare": "npm run build",
     "prerelease": "npm version prerelease --preid=beta",
     "publish-beta": "npm publish --tag beta",
     "publish": "npm publish"
