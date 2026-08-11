@@ -1,0 +1,15 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Build output and deps
+node_modules/
+
+# Logs
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
